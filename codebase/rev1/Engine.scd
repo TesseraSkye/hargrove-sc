@@ -11,20 +11,41 @@ var serverPort = 5551;
 n = NetAddr.new(serverAddr, serverPort);
 
 (
-SynthDef("sampler", {
-	// path is absolute. Start and length are in percentage of total.
-	arg rate = 1, amp = 1, path, start = 0, length, loop = 0, trig = -1, rev = 0, ;
+
+//Atonal Sampler. Rate control is through zero
+SynthDef("samplerAT", {
+
+	/* path is absolute.
+	Start and length are in percentage of total. Length longer than 1 will just wrap
+	When trig crosses 0, it will restart the sample
+	FM is -1 to 1 at audio rate (can be larger, will scale)
+	*/
+
+	arg rate = 1, amp = 1, path, start = 0, length = 1, loop = 0, trig = -1 fm=0;
 
 	// check and see if the buffer has already been initialized. If not, instantiate
-	if((~sampPath !== path), {~sampBuffer = Buffer.read(s, path)}, {});
-
-	//convert args to sample numbers
+	if((~sampPath !== path), {~sampBuffer = Buffer.read(s, path); ~sampPath = path}, {});
+	//convert positional args to samples
 	var loopStart = start * BufFrames.kr(~sampBuffer);
 	var loopLength = length * BufFrames.kr(~sampBuffer);
 	var loopEnd = sampStart + sampLength;
-	var loopRate = BufRateScale.kr(~sampBuffer.bufnum) * rate
-	var loopPointer = Phasor.ar(trig, , loopStart, loopEnd, loopStart)
-	BufRd.ar(1, ~sampBuffer, )
+	//positive rate is forward playback, negative is reversed. +-1 is initial speed
+	var loopRate = BufRateScale.kr(~sampBuffer.bufnum) * rate + fm;
+	var loopFull = Phasor.ar(trig, loopRate, 0, loopLength);
+
+	var loopWrapped = 0;
+
+	//If loop is true, runs indefinitly.
+	if ((loop == 1), {
+		BufRd.ar(1, ~sampBuffer, (Wrap((loopFull + loopStart),0, BufFrames.kr(~sampBuffer))), 0, 4);
+	},
+	{   // else, checks to see if Phasor has reached the end of the buffer, then kills
+		while (loopFull < (LoopLength - 1), {
+			BufRd.ar(1, ~sampBuffer, (Wrap((loopFull + loopStart),0, BufFrames.kr(~sampBuffer))), 0, 4);
+
+		})
+		//
+	})
 }.add
 )
 )
