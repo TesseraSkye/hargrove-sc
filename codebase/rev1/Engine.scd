@@ -1,19 +1,20 @@
 // - - - - - INIT - - - - -
-( //force synchronous execution for initialization
-s = Server.default;
 s.boot;
+//force synchronous execution for initialization
 
 // defined here in the event that they need use later
-var serverAddr = "127.0.0.1";
-var serverPort = 5551;
+~serverAddr = "127.0.0.1";
+~serverPort = 5551;
 
 // setup server on port 5551
-n = NetAddr.new(serverAddr, serverPort);
+n = NetAddr.new(~serverAddr, ~serverPort);
 
 (
 
+
+
 //Atonal Sampler. Rate control is through zero
-SynthDef("samplerAT", {
+SynthDef.new(\sampler_atonal, {
 
 	/* path is absolute.
 	Start and length are in percentage of total. Length longer than 1 will just wrap
@@ -21,34 +22,37 @@ SynthDef("samplerAT", {
 	FM is -1 to 1 at audio rate (can be larger, will scale)
 	*/
 
-	arg rate = 1, amp = 1, path, start = 0, length = 1, loop = 0, trig = -1 fm=0;
+	arg rate = 1, path = "", start = 0, length = 1, loop = 0, trig = -1, fm=0;
+
+	var loopStart, loopLength, loopEnd, loopRate, loopFull, sig;
 
 	// check and see if the buffer has already been initialized. If not, instantiate
-	if((~sampPath !== path), {~sampBuffer = Buffer.read(s, path); ~sampPath = path}, {});
+	if((~sampPath !== path),
+		{
+			~sampBuffer = Buffer.read(s, path);
+			~sampPath = path;
+			~sampPath.postln;},
+		{~sampPath.postln;});
 	//convert positional args to samples
-	var loopStart = start * BufFrames.kr(~sampBuffer);
-	var loopLength = length * BufFrames.kr(~sampBuffer);
-	var loopEnd = sampStart + sampLength;
+	loopStart = start * BufFrames.kr(~sampBuffer);
+	loopLength = length * BufFrames.kr(~sampBuffer);
+	loopEnd = loopStart + loopLength;
 	//positive rate is forward playback, negative is reversed. +-1 is initial speed
-	var loopRate = BufRateScale.kr(~sampBuffer.bufnum) * rate + fm;
-	var loopFull = Phasor.ar(trig, loopRate, 0, loopLength);
-
-	var loopWrapped = 0;
-
-	//If loop is true, runs indefinitly.
-	if ((loop == 1), {
-		BufRd.ar(1, ~sampBuffer, (Wrap((loopFull + loopStart),0, BufFrames.kr(~sampBuffer))), 0, 4);
+	loopRate = BufRateScale.kr(~sampBuffer.bufnum) * rate + fm;
+	loopFull = Phasor.ar(trig, loopRate, 0, loopLength);
+	sig = BufRd.ar(1, ~sampBuffer, (Wrap((loopFull + loopStart),0, BufFrames.kr(~sampBuffer))), 0, 4);
+	//If loop is false, kills at end of cycle
+	if ((loop == 0), {
+		FreeSelf(loopFull.value - (loopLength - 1))
 	},
-	{   // else, checks to see if Phasor has reached the end of the buffer, then kills
-		while (loopFull < (LoopLength - 1), {
-			BufRd.ar(1, ~sampBuffer, (Wrap((loopFull + loopStart),0, BufFrames.kr(~sampBuffer))), 0, 4);
+	{});
 
-		})
-		//
-	})
-}.add
+	Out.ar(0, sig);
+}
+).add;
 )
-)
+
+x = Synth.new(\sampler_atonal, [\path, "wtf.wav"]);
 
 // at some point here, the outboard preset manager will read the osc3 controls and send them as OSC messages
 
@@ -63,4 +67,3 @@ OSC3 Modes
 6 - Resonators (DynKlank) - Bank modal resonator
 7 - Pluck (Pluck) - Karplus Pluck (variable source)
 */
-)
