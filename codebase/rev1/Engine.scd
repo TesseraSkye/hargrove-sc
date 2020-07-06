@@ -1,18 +1,28 @@
 // - - - - - INIT - - - - -
 s.boot;
-//force synchronous execution for initialization
 
-// defined here in the event that they need use later
-~serverAddr = "127.0.0.1";
-~serverPort = 5551;
+// // defined here in the event that they need use later
+// ~serverAddr = "127.0.0.1";
+// ~serverPort = 5551;
+//
+// // setup server on port 5551
+// n = NetAddr.new(~serverAddr, ~serverPort);
 
-// setup server on port 5551
-n = NetAddr.new(~serverAddr, ~serverPort);
+
+/*
+OSC3 Modes
+0 - Sample Playback (PlayBuf) (low rate, osc rate) (Wrap)
+1 - 3D Wavetable (VOsc) (allows recording)
+2 - Granular (GrainBuf) (trig, dur, rate, pos)
+3 - Digital Oscilators (Osc) - Saw, sine, tri, pulse, supersaw, etc. Can be shaped with (Shaper)
+4 - Analog Sampled Oscillators - sampled from internal (VOsc ? maybe just Osc) Can be shaped with (Shaper)
+5 - Spring (Spring) - Spring Synthesis
+6 - Resonators (DynKlank) - Bank modal resonator
+7 - Pluck (Pluck) - Karplus Pluck (variable source)
+*/
+
 
 (
-
-
-
 //Atonal Sampler. Rate control is through zero
 SynthDef.new(\sampler_atonal, {
 
@@ -22,7 +32,7 @@ SynthDef.new(\sampler_atonal, {
 	FM is -1 to 1 at audio rate (can be larger, will scale)
 	*/
 
-	arg rate = 1, path = "", start = 0, length = 1, loop = 0, trig = -1, fm=0;
+	arg rate = 1, path, start = 0, length = 1, loop = 0, trig = -1;
 
 	var loopStart, loopLength, loopEnd, loopRate, loopFull, sig;
 
@@ -54,16 +64,55 @@ SynthDef.new(\sampler_atonal, {
 
 x = Synth.new(\sampler_atonal, [\path, "wtf.wav"]);
 
+
+
+(
+//Granular Engine
+SynthDef.new(\granular, {
+
+	arg path, rate=1, length=1, ktr=1, startPos=0, envPoint=0, envPointX=0, envPointY=0, envPointCurve=0;
+
+	var
+
+	//
+
+	Env
+	EnvGen
+	EnvelopeView
+	GrainBuf
+
+
+
+
+	(
+// use shift-click to keep a node selected
+w = Window("envelope", Rect(150 , Window.screenBounds.height - 250, 250, 100)).front;
+w.view.decorator = FlowLayout(w.view.bounds);
+
+b = EnvelopeView(w, Rect(0, 0, 230, 80))
+    .drawLines_(true)
+    .selectionColor_(Color.blue)
+    .drawRects_(true)
+    .resize_(20)
+    .step_(0.05)
+    .action_({arg b; [b.index, b.value].postln})
+    .thumbSize_(20)
+    .value_([[0.0, 0.1, 0.5, 1.0],[0.1,1.0,0.8,0.0]]);
+w.front;
+)
+
+
+}).add
+)
+
+
 // at some point here, the outboard preset manager will read the osc3 controls and send them as OSC messages
 
-/*
-OSC3 Modes
-0 - Sample Playback (PlayBuf) (low rate, osc rate) (Wrap)
-1 - 3D Wavetable (VOsc) (allows recording)
-2 - Granular (GrainBuf) (trig, dur, rate, pos)
-3 - Digital Oscilators (Osc) - Saw, sine, tri, pulse, supersaw, etc. Can be shaped with (Shaper)
-4 - Analog Sampled Oscillators - sampled from internal (VOsc ? maybe just Osc) Can be shaped with (Shaper)
-5 - Spring (Spring) - Spring Synthesis
-6 - Resonators (DynKlank) - Bank modal resonator
-7 - Pluck (Pluck) - Karplus Pluck (variable source)
-*/
+
+
+
+
+
+
+
+
