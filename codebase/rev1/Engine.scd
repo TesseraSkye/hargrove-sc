@@ -80,6 +80,7 @@ SynthDef.new(\granular, {
 	EnvGen
 	EnvelopeView
 	GrainBuf
+	PathName
 
 
 
