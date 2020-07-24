@@ -1,6 +1,6 @@
 // - - - - - INIT - - - - -
 s.boot;
-
+s.quit;
 // // defined here in the event that they need use later
 // ~serverAddr = "127.0.0.1";
 // ~serverPort = 5551;
@@ -21,6 +21,7 @@ OSC3 Modes
 7 - Pluck (Pluck) - Karplus Pluck (variable source)
 */
 
+b = Buffer.read(s, "Q:/4_Code/Projects/HargroveOld/codebase-new/hargrove-sc/codebase/rev1/wtf.wav");
 
 (
 //Atonal Sampler. Rate control is through zero
@@ -32,40 +33,38 @@ SynthDef.new(\sampler_atonal, {
 	FM is -1 to 1 at audio rate (can be larger, will scale)
 	*/
 
-	arg rate = 1, path, start = 0, length = 1, loop = 0, trig = -1;
+	arg rate = 1, path="", start = 0, length = 1, loop = 0, trig = -1;
 
-	var loopStart, loopLength, loopEnd, loopRate, loopFull, sig;
+	var loopStart, loopLength, loopEnd, loopRate, loopFull, sig, sampBuffer;
 
-	// check and see if the buffer has already been initialized. If not, instantiate
-	if((~sampPath !== path),
-		{
-			~sampBuffer = Buffer.read(s, path);
-			~sampPath = path;
-			~sampPath.postln;},
-		{~sampPath.postln;});
+	sampBuffer = b;
+
 	//convert positional args to samples
-	loopStart = start * BufFrames.kr(~sampBuffer);
-	loopLength = length * BufFrames.kr(~sampBuffer);
+	loopStart = start * BufFrames.kr(sampBuffer);
+	loopLength = length * BufFrames.kr(sampBuffer);
 	loopEnd = loopStart + loopLength;
 	//positive rate is forward playback, negative is reversed. +-1 is initial speed
-	loopRate = BufRateScale.kr(~sampBuffer.bufnum) * rate + fm;
+	loopRate = BufRateScale.kr(sampBuffer.bufnum) * rate;
 	loopFull = Phasor.ar(trig, loopRate, 0, loopLength);
-	sig = BufRd.ar(1, ~sampBuffer, (Wrap((loopFull + loopStart),0, BufFrames.kr(~sampBuffer))), 0, 4);
+	sig = BufRd.ar(2, sampBuffer, Wrap.ar((loopFull + loopStart),0, BufFrames.kr(sampBuffer)), 0, 4);
 	//If loop is false, kills at end of cycle
-	if ((loop == 0), {
-		FreeSelf(loopFull.value - (loopLength - 1))
-	},
-	{});
-
-	Out.ar(0, sig);
-}
-).add;
+	if ( loop==0, {
+		FreeSelf(loopFull.value - (loopLength - 1));
+		"freed".postln;
+		},
+		{},
+	);
+	Out.ar(0, [sig[0],sig[1]]);
+}).add;
 )
 
-x = Synth.new(\sampler_atonal, [\path, "wtf.wav"]);
+x = Synth.new(\sampler_atonal);
+x.set(\start, 0.3);
+x.set(\trig, -1);
 
+Pbi
 
-
+x.free;
 (
 //Granular Engine
 SynthDef.new(\granular, {
