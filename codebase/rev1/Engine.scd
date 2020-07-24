@@ -24,18 +24,18 @@ OSC3 Modes
 b = Buffer.read(s, "Q:/4_Code/Projects/HargroveOld/codebase-new/hargrove-sc/codebase/rev1/wtf.wav");
 
 (
-//Atonal Sampler. Rate control is through zero
+// Atonal Sampler. Rate control is through zero
 SynthDef.new(\sampler_atonal, {
 
-	/* path is absolute.
-	Start and length are in percentage of total. Length longer than 1 will just wrap
+	/* Start and length are in percentage of total. Length longer than 1 will just wrap
 	When trig crosses 0, it will restart the sample
-	FM is -1 to 1 at audio rate (can be larger, will scale)
+	When loop is true, the sample loops
+	Voice num is a selector from 0 - 8 that sets the output of the synth
 	*/
 
-	arg rate = 1, path="", start = 0, length = 1, loop = 0, trig = -1;
+	arg rate = 1, start = 0, length = 1, loop = 0, trig = -1, voiceNum = 0;
 
-	var loopStart, loopLength, loopEnd, loopRate, loopFull, sig, sampBuffer;
+	var loopStart, loopLength, loopEnd, loopRate, loopFull, sig, sigMono, sampBuffer, outArr;
 
 	sampBuffer = b;
 
@@ -47,20 +47,23 @@ SynthDef.new(\sampler_atonal, {
 	loopRate = BufRateScale.kr(sampBuffer.bufnum) * rate;
 	loopFull = Phasor.ar(trig, loopRate, 0, loopLength);
 	sig = BufRd.ar(2, sampBuffer, Wrap.ar((loopFull + loopStart),0, BufFrames.kr(sampBuffer)), 0, 4);
+	sigMono = Mix.new(sig);
+	outArr = PanAz.ar(8, sigMono, voiceNum/4, 1, 1, 0);
 	//If loop is false, kills at end of cycle
+	(loop==0).postln;
 	if ( loop==0, {
 		FreeSelf(loopFull.value - (loopLength - 1));
 		"freed".postln;
 		},
 		{},
 	);
-	Out.ar(0, [sig[0],sig[1]]);
+	Out.ar(0, outArr);
 }).add;
 )
 
-x = Synth.new(\sampler_atonal);
-x.set(\start, 0.3);
-x.set(\trig, -1);
+x = Synth.new(\sampler_atonal)
+x.set(\voiceNum, 0)
+
 
 Pbi
 
