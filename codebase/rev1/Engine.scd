@@ -35,37 +35,39 @@ SynthDef.new(\sampler_atonal, {
 
 	arg rate = 1, start = 0, length = 1, loop = 0, trig = -1, voiceNum = 0;
 
-	var loopStart, loopLength, loopEnd, loopRate, loopFull, sig, sigMono, sampBuffer, outArr;
+	var loopStart, loopLength, loopEnd, loopRate, loopFull, sig, sigMono, sampBuffer, outArr, frames, afa;
 
 	sampBuffer = b;
 
 	//convert positional args to samples
-	loopStart = start * BufFrames.kr(sampBuffer);
-	loopLength = length * BufFrames.kr(sampBuffer);
+	frames = BufFrames.kr(sampBuffer);
+	loopStart = start * frames;
+	loopLength = length * frames;
 	loopEnd = loopStart + loopLength;
 	//positive rate is forward playback, negative is reversed. +-1 is initial speed
 	loopRate = BufRateScale.kr(sampBuffer.bufnum) * rate;
 	loopFull = Phasor.ar(trig, loopRate, 0, loopLength);
-	sig = BufRd.ar(2, sampBuffer, Wrap.ar((loopFull + loopStart),0, BufFrames.kr(sampBuffer)), 0, 4);
+	sig = BufRd.ar(2, sampBuffer, Wrap.ar((loopFull + loopStart),0, frames), 0, 4);
 	sigMono = Mix.new(sig);
 	outArr = PanAz.ar(8, sigMono, voiceNum/4, 1, 1, 0);
-	//If loop is false, kills at end of cycle
-	(loop==0).postln;
-	if ( loop==0, {
-		FreeSelf(loopFull.value - (loopLength - 1));
-		"freed".postln;
-		},
-		{},
-	);
 	Out.ar(0, outArr);
+	afa = loopFull > (loopLength + (100 * (loop-1)));
+	FreeSelf.kr(afa);
 }).add;
 )
 
 x = Synth.new(\sampler_atonal)
-x.set(\voiceNum, 0)
+x.set(\loop, 0)
 
-
-Pbi
+(
+SynthDef.new(\test, {
+	arg i=0;
+	//returns false
+	(i==0).postln;
+	}
+).add;
+)
+Synth(\test)
 
 x.free;
 (
