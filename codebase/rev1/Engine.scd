@@ -21,7 +21,7 @@ OSC3 Modes
 7 - Pluck (Pluck) - Karplus Pluck (variable source)
 */
 
-b = Buffer.read(s, "Q:/4_Code/Projects/HargroveOld/codebase-new/hargrove-sc/codebase/rev1/wtf.wav");
+b = Buffer.read(s, "Q:/4_Code/Projects/HargroveOld/codebase-new/hargrove-sc/codebase/rev1/vocoder.wav");
 
 (
 // Atonal Sampler. Rate control is through zero
@@ -33,43 +33,60 @@ SynthDef.new(\sampler_atonal, {
 	Voice num is a selector from 0 - 8 that sets the output of the synth
 	*/
 
-	arg rate = 1, start = 0, length = 1, loop = 0, trig = -1, voiceNum = 0;
+	arg rate = 1, start = 0, duration = 1, loop = 1, trig = -1, voiceNum = 0;
 
-	var loopStart, loopLength, loopEnd, loopRate, loopFull, sig, sigMono, sampBuffer, outArr, frames, afa;
+	var loopStart, loopLength, loopEnd, loopRate, loopFull, sig, sigMono, sampBuffer, outArr, frames, freeTrig, deltaTrig;
 
 	sampBuffer = b;
 
 	//convert positional args to samples
 	frames = BufFrames.kr(sampBuffer);
 	loopStart = start * frames;
-	loopLength = length * frames;
-	loopEnd = loopStart + loopLength;
+	loopLength = duration * frames;
 	//positive rate is forward playback, negative is reversed. +-1 is initial speed
 	loopRate = BufRateScale.kr(sampBuffer.bufnum) * rate;
+	//Positional driver
 	loopFull = Phasor.ar(trig, loopRate, 0, loopLength);
 	sig = BufRd.ar(2, sampBuffer, Wrap.ar((loopFull + loopStart),0, frames), 0, 4);
+	//mix down to mono from whatever config the sample is in
 	sigMono = Mix.new(sig);
 	outArr = PanAz.ar(8, sigMono, voiceNum/4, 1, 1, 0);
 	Out.ar(0, outArr);
-	afa = loopFull > (loopLength + (100 * (loop-1)));
-	FreeSelf.kr(afa);
+	//Here to make live good for debug
+	// Out.ar(0, [sigMono,sigMono]);
+	//frees self at end if loop is off
+	freeTrig = loopFull > (loopLength + (100 * (loop-1)));
+	FreeSelf.kr(freeTrig);
 }).add;
 )
 
-x = Synth.new(\sampler_atonal)
-x.set(\loop, 0)
+x = Synth(\sampler_atonal);
 
 (
-SynthDef.new(\test, {
-	arg i=0;
-	//returns false
-	(i==0).postln;
-	}
-).add;
-)
-Synth(\test)
+CCResponder.new({
+	arg src, chan, num, value;
+	var newVal; newVal=((value-64)/32);
+	x.set(\rate, newVal);
+	newVal.postln;
+}, num:1);
 
-x.free;
+CCResponder.new({
+	arg src, chan, num, value;
+	var newVal; newVal=(value/128);
+	x.set(\start, newVal);
+	newVal.postln;
+}, num:2);
+
+CCResponder.new({
+	arg src, chan, num, value;
+	var newVal; newVal=((value/127)**3) + 0.001;
+	x.set(\duration, newVal);
+	newVal.postln;
+}, num:3);
+)
+
+CCResponder.responders.do({arg item, index; item.remove;});
+
 (
 //Granular Engine
 SynthDef.new(\granular, {
