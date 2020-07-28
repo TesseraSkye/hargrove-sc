@@ -10,8 +10,11 @@ s.quit;
 
 // C O N T R O L S
 
-//reset CC controls
+//reset controls
+(
 CCResponder.responders.do({arg item, index; item.remove;});
+NoteOnResponder.responders.do({arg item, index; item.remove;});
+)
 
 //controls for sampler
 (
@@ -35,32 +38,126 @@ CCResponder.new({
 	x.set(\duration, newVal);
 	// newVal.postln;
 }, num:3);
-)
+NoteOnResponder.new({
+	arg src, chan, num, value;
+	var newVal; newVal=2**((num/12)-5);
+	x.set(\ratioPitch, newVal);
+	// newVal.postln;
+	});
 
 //controls for granular
-(
+
 CCResponder.new({
 	arg src, chan, num, value;
 	var newVal; newVal=((value)/15.875);
 	g.set(\grainRate, newVal);
 	// newVal.postln;
-}, num:5);
+}, num:1);
 
 CCResponder.new({
 	arg src, chan, num, value;
 	var newVal; newVal=(value/15.875);
 	g.set(\density, newVal);
 	// newVal.postln;
-}, num:6);
+}, num:2);
 
 CCResponder.new({
 	arg src, chan, num, value;
 	var newVal; newVal=(value/127);
 	g.set(\startPos, newVal);
 	// newVal.postln;
-}, num:7);
-)
+}, num:3);
+NoteOnResponder.new({
+	arg src, chan, num, value;
+	var newVal; newVal=2**((num/12)-5);
+	g.set(\ratioPitch, newVal);
+	// newVal.postln;
+});
 
+//controls for resonator
+CCResponder.new({
+	arg src, chan, num, value;
+	var newVal; newVal=(value/127);
+	r.set(\fOffset, newVal);
+	// newVal.postln;
+}, num:1);
+
+CCResponder.new({
+	arg src, chan, num, value;
+	var newVal; newVal=(value/127);
+	r.set(\dScale, newVal);
+	// newVal.postln;
+}, num:2);
+
+/*CCResponder.new({
+	arg src, chan, num, value;
+	var newVal; newVal=(value/127);
+	r.set(\startPos, newVal);
+	// newVal.postln;
+}, num:3);*/
+NoteOnResponder.new({
+	arg src, chan, num, value;
+	var newVal; newVal=2**((num/12)-5);
+	r.set(\ratioPitch, newVal);
+	// newVal.postln;
+});
+
+//controls for bass
+CCResponder.new({
+	arg src, chan, num, value;
+	var newVal; newVal=(value/127);
+	s.set(\paramX, newVal);
+	// newVal.postln;
+}, num:1);
+
+CCResponder.new({
+	arg src, chan, num, value;
+	var newVal; newVal=(value/127);
+	s.set(\paramY, newVal);
+	// newVal.postln;
+}, num:2);
+
+CCResponder.new({
+	arg src, chan, num, value;
+	var newVal; newVal=(value/127);
+	s.set(\paramZ, newVal);
+	// newVal.postln;
+}, num:3);
+NoteOnResponder.new({
+	arg src, chan, num, value;
+	var newVal; newVal=num.midicps;
+	s.set(\cpsPitch, newVal);
+	// newVal.postln;
+});
+
+//controls for tube
+CCResponder.new({
+	arg src, chan, num, value;
+	var newVal; newVal=(value/127);
+	t.set(\paramX, newVal);
+	// newVal.postln;
+}, num:1);
+
+CCResponder.new({
+	arg src, chan, num, value;
+	var newVal; newVal=(value/127);
+	t.set(\paramY, newVal);
+	// newVal.postln;
+}, num:2);
+
+CCResponder.new({
+	arg src, chan, num, value;
+	var newVal; newVal=(value/127);
+	t.set(\paramZ, newVal);
+	// newVal.postln;
+}, num:3);
+NoteOnResponder.new({
+	arg src, chan, num, value;
+	var newVal; newVal=num.midicps;
+	t.set(\cpsPitch, newVal);
+	// newVal.postln;
+});
+)
 //!!!!!!!P I T C H   I S  2^((MIDI / 12) - 5)
 
 
@@ -76,17 +173,11 @@ OSC3 Modes
 7 - Pluck (Pluck) - Karplus Pluck (variable source)
 */
 
-(
-~sampPath = "Q:/4_Code/Projects/HargroveOld/codebase-new/hargrove-sc/codebase/rev1/samples/woah.wav";
-b = Buffer.readChannel(s, ~sampPath,channels:[0]);
-)
-b.free;
 
-(
-var winenv;
-winenv = Env.new(levels: [0, 1, 0.9, 0], times: [0.1, 0.5, 0.4], curve: [-5, 0, -5]);
-e = Buffer.sendCollection(s, winenv.discretize, 1)
-)
+~sampPath = "Q:/4_Code/Projects/HargroveOld/codebase-new/hargrove-sc/codebase/rev1/samples/vocoder.wav";
+b = Buffer.readChannel(s, ~sampPath,channels:[0]);
+
+b.free;
 
 (
 // Atonal Sampler. Rate control is through zero
@@ -125,7 +216,7 @@ SynthDef.new(\sampler, {
 }).add;
 )
 
-x = Synth(\sampler, ["loop",1,'sampBuffer',b]);
+// x = Synth(\sampler, ["loop",1,'sampBuffer',b]);
 
 
 
@@ -154,37 +245,85 @@ SynthDef.new(\granular, {
 
 )
 
-g = Synth(\granular, [\sampBuffer,b,\env,-1,\grainRate,7,\density,1,\ratioPitch,1,\startPos,0.2]);
+// g = Synth(\granular, [\sampBuffer,b,\env,-1,\grainRate,7,\density,1,\ratioPitch,1,\startPos,0.2]);
 
-	(
-// use shift-click to keep a node selected
-w = Window("envelope", Rect(150 , Window.screenBounds.height - 250, 250, 100)).front;
-w.view.decorator = FlowLayout(w.view.bounds);
-
-e = EnvelopeView(w, Rect(0, 0, 230, 80))
-    .drawLines_(true)
-    .selectionColor_(Color.blue)
-    .drawRects_(true)
-    .resize_(20)
-    .step_(0.05)
-    .action_({arg b; [b.index, b.value].postln})
-    .thumbSize_(20)
-    .value_([[0.0, 0.1, 0.5, 1.0],[0.1,1.0,0.8,0.0]]);
-w.front;
+(
+//modal synthesis
+SynthDef.new(\resonator, {
+	arg input, ratioPitch=1, fOffset=0, dScale=1,
+    freqs (#[261.63, 523.26, 1048, 2096]),
+    amps (#[0.8, 0.6, 0.4, 0.05]),
+	rings (#[2, 1.5, 2, 0.8]);
+	var sig;
+	fOffset = 600*(2**(fOffset))-600;
+	sig = DynKlank.ar(`[freqs, amps, rings], input.asAudioRateInput, ratioPitch, fOffset, dScale);
+    Out.ar(0, sig);
+}).add;
 )
 
+r = Synth(\resonator);
+r.set(\fOffset, 2)
 
-}).add
+
+
+(
+//osc patch for heavy bass design
+SynthDef.new(\bass, {
+	arg cpsPitch = 55, paramX=0, paramY=0, paramZ=0;
+	var sig, sin, tri, saw, modSaw, pulse, wNoise, freqs, amps, rings;
+	sin = SinOsc.ar(cpsPitch);
+	tri = LFTri.ar(cpsPitch);
+	modSaw = Saw.ar(cpsPitch);
+	saw = Saw.ar(cpsPitch/*, cpsPitch*(paramX+1)*/);
+	wNoise = WhiteNoise.ar;
+
+	sig = saw;
+
+	// sig = BPF.ar(sig,100);
+
+	/*freqs = (#[261.63, 523.26, 1048, 2096]);
+	amps = (#[0.8, 0.6, 0.4, 0.05]);
+	rings = (#[2, 1.5, 2, 0.8]);
+	sig = DynKlank.ar(`[freqs, amps, rings], sig*0.01);*/
+
+	sig = NTube.ar(sig,`[0.97,1.0,1.0,1.0,1.0,0.97],`[0.3,paramX-0.1,0.5,-0.4],`([0.01,0.02,0.01,0.005,0.05]*(paramY)))*0.1;
+
+	/*sig = InsideOut.ar(sig);
+	sig = LPF.ar(sig,(paramY*127).midicps);
+	sig = SineShaper.ar(sig, 0.5);
+
+	sig = LeakDC.ar(sig);
+	sig = CombC.ar(sig,0.2, 1/(cpsPitch*(2**(paramZ*4))),0.1);
+	sig = Decimator.ar(sig, cpsPitch*(2**(paramY*10)));
+*/
+	Out.ar(0, [sig,sig]);
+}).add;
 )
 
+s = Synth(\bass);
+
+(
+//hammer tube thing. idk, it's cool lol
+SynthDef.new(\tube, {
+	arg cpsPitch = 55, paramX=0, paramY=0, paramZ=0;
+	var sig, saw, modSaw;
+	modSaw = Saw.ar(cpsPitch/(2**2));
+	saw = Saw.ar(cpsPitch);
+
+	sig = saw;
+
+	sig = NTube.ar(sig,`[0.97,1.0,1.0,1.0,1.0,0.97],`[0.3,paramX-0.1,modSaw*paramZ,-0.4],`([0.01,0.02,0.01,0.005,0.05]*(paramY)))*0.1;
+	sig = SineShaper.ar(sig, 0.5);
+
+	sig = CombC.ar(sig,0.2, 1/(cpsPitch*(2**(paramZ*4))),0.1);
+	sig = LeakDC.ar(sig);
+
+	Out.ar(0, [sig,sig]);
+}).add;
+)
+
+t = Synth(\tube);
 
 // at some point here, the outboard preset manager will read the osc3 controls and send them as OSC messages
-
-
-
-
-
-
-
 
 
