@@ -16,149 +16,41 @@ CCResponder.responders.do({arg item, index; item.remove;});
 NoteOnResponder.responders.do({arg item, index; item.remove;});
 )
 
-//controls for sampler
 (
 CCResponder.new({
 	arg src, chan, num, value;
-	var newVal; newVal=((value-63.5)/31.75);
-	x.set(\rate, newVal);
+	var newVal; newVal=(value/127);
+	~synth.set(\paramX, newVal);
 	// newVal.postln;
 }, num:1);
 
 CCResponder.new({
 	arg src, chan, num, value;
 	var newVal; newVal=(value/127);
-	x.set(\start, newVal);
-	// newVal.postln;
-}, num:2);
-
-CCResponder.new({
-	arg src, chan, num, value;
-	var newVal; newVal=((value/127)**3);
-	x.set(\duration, newVal);
-	// newVal.postln;
-}, num:3);
-NoteOnResponder.new({
-	arg src, chan, num, value;
-	var newVal; newVal=2**((num/12)-5);
-	x.set(\ratioPitch, newVal);
-	// newVal.postln;
-	});
-
-//controls for granular
-
-CCResponder.new({
-	arg src, chan, num, value;
-	var newVal; newVal=((value)/15.875);
-	g.set(\grainRate, newVal);
-	// newVal.postln;
-}, num:1);
-
-CCResponder.new({
-	arg src, chan, num, value;
-	var newVal; newVal=(value/15.875);
-	g.set(\density, newVal);
+	~synth.set(\paramY, newVal);
 	// newVal.postln;
 }, num:2);
 
 CCResponder.new({
 	arg src, chan, num, value;
 	var newVal; newVal=(value/127);
-	g.set(\startPos, newVal);
-	// newVal.postln;
-}, num:3);
-NoteOnResponder.new({
-	arg src, chan, num, value;
-	var newVal; newVal=2**((num/12)-5);
-	g.set(\ratioPitch, newVal);
-	// newVal.postln;
-});
-
-//controls for resonator
-CCResponder.new({
-	arg src, chan, num, value;
-	var newVal; newVal=(value/127);
-	r.set(\fOffset, newVal);
-	// newVal.postln;
-}, num:1);
-
-CCResponder.new({
-	arg src, chan, num, value;
-	var newVal; newVal=(value/127);
-	r.set(\dScale, newVal);
-	// newVal.postln;
-}, num:2);
-
-/*CCResponder.new({
-	arg src, chan, num, value;
-	var newVal; newVal=(value/127);
-	r.set(\startPos, newVal);
-	// newVal.postln;
-}, num:3);*/
-NoteOnResponder.new({
-	arg src, chan, num, value;
-	var newVal; newVal=2**((num/12)-5);
-	r.set(\ratioPitch, newVal);
-	// newVal.postln;
-});
-
-//controls for bass
-CCResponder.new({
-	arg src, chan, num, value;
-	var newVal; newVal=(value/127);
-	s.set(\paramX, newVal);
-	// newVal.postln;
-}, num:1);
-
-CCResponder.new({
-	arg src, chan, num, value;
-	var newVal; newVal=(value/127);
-	s.set(\paramY, newVal);
-	// newVal.postln;
-}, num:2);
-
-CCResponder.new({
-	arg src, chan, num, value;
-	var newVal; newVal=(value/127);
-	s.set(\paramZ, newVal);
+	~synth.set(\paramZ, newVal);
 	// newVal.postln;
 }, num:3);
 NoteOnResponder.new({
 	arg src, chan, num, value;
 	var newVal; newVal=num.midicps;
-	s.set(\cpsPitch, newVal);
-	// newVal.postln;
-});
-
-//controls for tube
-CCResponder.new({
-	arg src, chan, num, value;
-	var newVal; newVal=(value/127);
-	t.set(\paramX, newVal);
-	// newVal.postln;
-}, num:1);
-
-CCResponder.new({
-	arg src, chan, num, value;
-	var newVal; newVal=(value/127);
-	t.set(\paramY, newVal);
-	// newVal.postln;
-}, num:2);
-
-CCResponder.new({
-	arg src, chan, num, value;
-	var newVal; newVal=(value/127);
-	t.set(\paramZ, newVal);
-	// newVal.postln;
-}, num:3);
-NoteOnResponder.new({
-	arg src, chan, num, value;
-	var newVal; newVal=num.midicps;
-	t.set(\cpsPitch, newVal);
+	~synth.set(\cpsPitch, newVal);
 	// newVal.postln;
 });
 )
-//!!!!!!!P I T C H   I S  2^((MIDI / 12) - 5)
+
+
+
+
+
+
+//!!!!!!!R A T I O   P I T C H   I S  2**((cpsPitch.cpsmidi / 12) - 5)
 
 
 /*
@@ -177,6 +69,7 @@ OSC3 Modes
 ~sampPath = "Q:/4_Code/Projects/HargroveOld/codebase-new/hargrove-sc/codebase/rev1/samples/vocoder.wav";
 b = Buffer.readChannel(s, ~sampPath,channels:[0]);
 
+
 b.free;
 
 (
@@ -189,14 +82,23 @@ SynthDef.new(\sampler, {
 	Voice num is a selector from 0 - 8 that sets the output of the synth
 	*/
 
-	arg sampBuffer, rate = 1, start = 0, duration = 1, loop = 0, trig = -1, voiceNum = 0, ratioPitch=0;
+	arg sampBuffer, paramX = 0, paramY = 0, paramZ = 1, cpsPitch=440, loop = 0, trig = -1, voiceNum = 0;
 
-	var loopStart, loopLength, loopEnd, loopRate, loopPos, sig, sigMono, outArr, frames, freeTrig, deltaTrig;
+	var loopStart, loopLength, loopEnd, loopRate, loopPos, sig, sigMono, outArr, frames, freeTrig, deltaTrig, ratioPitch, rate, start, duration;
+
+	rate = (paramX-0.5)*4;
+	start = paramY;
+	duration = paramZ**3;
+	ratioPitch = 2**((cpsPitch.cpsmidi / 12) - 5);
 
 	//prevents overflow or underflow
 	duration = duration.clip(0.001,1);
 	//convert positional args to samples
 	frames = BufFrames.kr(sampBuffer);
+	deltaTrig = Changed.ar(LeakDC.ar(start.asAudioRateInput),0);
+	deltaTrig = Trig1.ar(deltaTrig,0.25);
+	deltaTrig = deltaTrig * (0-1) + 1;
+	// deltaTrig.poll(20,deltaTrig);
 	loopStart = start * frames;
 	loopLength = duration * frames;
 	loopLength = loopLength.clip(128,loopLength+20);
@@ -204,7 +106,7 @@ SynthDef.new(\sampler, {
 	loopRate = BufRateScale.kr(sampBuffer) * (rate + ratioPitch);
 	//Positional driver
 	loopPos = Phasor.ar(trig, loopRate, 0, loopLength);
-	sig = BufRd.ar(1, sampBuffer, Wrap.ar((loopPos + loopStart),0, frames), 0, 4);
+	sig = BufRd.ar(1, sampBuffer, Wrap.ar((loopPos + loopStart)*deltaTrig,0, frames), 0, 4);
 	//set up panning to all 8 outputs
 	outArr = PanAz.ar(8, sig, voiceNum/4, 1, 1, 0);
 	Out.ar(0, outArr);
@@ -216,7 +118,7 @@ SynthDef.new(\sampler, {
 }).add;
 )
 
-// x = Synth(\sampler, ["loop",1,'sampBuffer',b]);
+~synth = Synth(\sampler, ["loop",1,'sampBuffer',b]);
 
 
 
@@ -225,9 +127,14 @@ SynthDef.new(\sampler, {
 SynthDef.new(\granular, {
 
 	// grain rate is grains / second (kinda), density is ratio of grain rate : grain length
-	arg sampBuffer, env, grainRate=0, density=1, ratioPitch=1, startPos=0, ktr=1, voiceNum=0;
+	arg sampBuffer, paramX=0, paramY=1, paramZ=0, cpsPitch=440, env= -1, ktr=1, voiceNum=0;
 
-	var grainTrig, duration, frames, sig, outArr;
+	var grainTrig, duration, frames, sig, outArr, grainRate, density, startPos, ratioPitch;
+
+	grainRate = paramX*8;
+	density = paramY*8;
+	startPos = paramZ;
+	ratioPitch = 2**((cpsPitch.cpsmidi / 12) - 5);
 
 	//scales the vales from 0
 	grainRate = 2**grainRate;
@@ -245,67 +152,38 @@ SynthDef.new(\granular, {
 
 )
 
-// g = Synth(\granular, [\sampBuffer,b,\env,-1,\grainRate,7,\density,1,\ratioPitch,1,\startPos,0.2]);
+~synth = Synth(\granular, [\sampBuffer,b,\env,-1,\grainRate,7,\density,1,\ratioPitch,1,\startPos,0.2]);
+
+
+
 
 (
 //modal synthesis
 SynthDef.new(\resonator, {
-	arg input, ratioPitch=1, fOffset=0, dScale=1,
+	arg input, cpsPitch=440, paramX=0, paramY=1, paramZ=0,
     freqs (#[261.63, 523.26, 1048, 2096]),
     amps (#[0.8, 0.6, 0.4, 0.05]),
 	rings (#[2, 1.5, 2, 0.8]);
-	var sig;
+	var sig, fOffset, dScale, ratioPitch;
+
+	fOffset = paramX;
+	dScale = paramY;
+	ratioPitch = 2**((cpsPitch.cpsmidi / 12) - 5);
+
 	fOffset = 600*(2**(fOffset))-600;
 	sig = DynKlank.ar(`[freqs, amps, rings], input.asAudioRateInput, ratioPitch, fOffset, dScale);
     Out.ar(0, sig);
 }).add;
 )
 
-r = Synth(\resonator);
-r.set(\fOffset, 2)
+~synth = Synth(\resonator);
+~synth.set(\fOffset, 2)
 
-
-
-(
-//osc patch for heavy bass design
-SynthDef.new(\bass, {
-	arg cpsPitch = 55, paramX=0, paramY=0, paramZ=0;
-	var sig, sin, tri, saw, modSaw, pulse, wNoise, freqs, amps, rings;
-	sin = SinOsc.ar(cpsPitch);
-	tri = LFTri.ar(cpsPitch);
-	modSaw = Saw.ar(cpsPitch);
-	saw = Saw.ar(cpsPitch/*, cpsPitch*(paramX+1)*/);
-	wNoise = WhiteNoise.ar;
-
-	sig = saw;
-
-	// sig = BPF.ar(sig,100);
-
-	/*freqs = (#[261.63, 523.26, 1048, 2096]);
-	amps = (#[0.8, 0.6, 0.4, 0.05]);
-	rings = (#[2, 1.5, 2, 0.8]);
-	sig = DynKlank.ar(`[freqs, amps, rings], sig*0.01);*/
-
-	sig = NTube.ar(sig,`[0.97,1.0,1.0,1.0,1.0,0.97],`[0.3,paramX-0.1,0.5,-0.4],`([0.01,0.02,0.01,0.005,0.05]*(paramY)))*0.1;
-
-	/*sig = InsideOut.ar(sig);
-	sig = LPF.ar(sig,(paramY*127).midicps);
-	sig = SineShaper.ar(sig, 0.5);
-
-	sig = LeakDC.ar(sig);
-	sig = CombC.ar(sig,0.2, 1/(cpsPitch*(2**(paramZ*4))),0.1);
-	sig = Decimator.ar(sig, cpsPitch*(2**(paramY*10)));
-*/
-	Out.ar(0, [sig,sig]);
-}).add;
-)
-
-s = Synth(\bass);
 
 (
 //hammer tube thing. idk, it's cool lol
 SynthDef.new(\tube, {
-	arg cpsPitch = 55, paramX=0, paramY=0, paramZ=0;
+	arg cpsPitch = 440, paramX=0, paramY=0, paramZ=0;
 	var sig, saw, modSaw;
 	modSaw = Saw.ar(cpsPitch/(2**2));
 	saw = Saw.ar(cpsPitch);
@@ -322,7 +200,172 @@ SynthDef.new(\tube, {
 }).add;
 )
 
-t = Synth(\tube);
+~synth = Synth(\tube);
+
+
+
+// Wavetable Prep
+
+(
+~frameSize = 2048;
+~wtPath = "Q:/4_Code/Projects/HargroveOld/codebase-new/hargrove-sc/codebase/rev1/samples/wt_shapes.wav";
+~tables = [];
+~wtBufferFull = Buffer.read(s, ~wtPath);
+)
+(
+//get frames in wavetable
+~tableSamps = ~wtBufferFull.numFrames;
+	// ~tableSamps.postln;
+~tableFrames = ~tableSamps/~frameSize;
+)
+
+//make buffer set for multi tables
+// ~wtBufferSet = Buffer.allocConsecutive(~tableSize, s, ~frameSize*2, completionMessage: { "Added Buffer".postln; });
+
+(
+//makes wavetable out of buffer
+
+~buildWavetable = {
+	arg buf, tableNum, frameSize;
+	var floatArr, sig, frameOffset, outBuff;
+	frameSize.postln;
+	tableNum.postln;
+	frameOffset = ((tableNum * frameSize)-1).clip(0,tableNum * frameSize);
+	frameOffset.postln;
+	{
+		// buf.value.postln;
+		buf.getToFloatArray(frameOffset, frameSize, action:{arg array; {
+		floatArr = array;
+			floatArr.postln;
+			// "Added Float Array".postln;
+			sig = Signal.newClear(frameSize).waveFill({ |x, old, i| floatArr[x]},0,frameSize);
+			sig = sig.asWavetable;
+			sig.postln;
+		}.defer;});
+	}.defer;
+	outBuff = Buffer.sendCollection(s,sig.asArray);
+	// floatArr.free;
+	// sig.free;
+	("Finished Table Number" + tableNum).postln;
+	outBuff;
+}
+)
+
+// addsWavetables
+
+//init table array
+~tables = Array.newClear(7);
+~tables.postln;
+// repeats once for each table
+(
+// AppClock.sched(0.01, {
+	~tables.do({
+		arg data, num;
+		num.postln;
+		// done twice to fix weird bug
+		num = 1;
+		fork {
+		0.5.wait;
+		~tables.put(num,~buildWavetable.value(~wtBufferFull, num, ~frameSize));
+		0.5.wait;
+		~tables.put(num,~buildWavetable.value(~wtBufferFull, num, ~frameSize));
+	};
+
+	});
+// });
+)
+
+e = ~buildWavetable.value(~wtBufferFull, 1, ~frameSize);
+e.postln;
+e.plot;
+
+~tables.put(1,~buildWavetable.value(~wtBufferFull, 1, ~frameSize));
+
+~tables.postln;
+~tables[1].plot;
+
+
+
+//init table array
+~tables = Array.newClear(~tableFrames);
+~tables.postln;
+// repeats once for each table
+
+	var num;
+	num=2;
+	// done twice to fix weird bug
+
+	AppClock.sched(0, {~tables.put(num,~buildWavetable.value(~wtBufferFull, num, ~frameSize);)});
+	AppClock.sched(0.05, {~tables.put(num,~buildWavetable.value(~wtBufferFull, num, ~frameSize);)});
+
+
+
+~tables
+~tables[2].plot;
+
+
+
+~wtTable.size;
+~wtSig.plot;
+
+~wtBufferSet[0].plot
+
+~wtSig.free;
+
+(
+
+SynthDef.new(\wavetable, {
+	arg buffer, rate=0, cpsPitch=110, frameSize = 2048, paramX=0, paramY=0, paramZ=0, frameCount = 1;
+	var sig;
+	sig = Osc.ar(buffer,cpsPitch);
+
+	sig.scope;
+	Out.ar(0, [sig,sig]);
+}).add;
+)
+~synth = Synth(\wavetable, [\buffer,e]);
+// ~synth.set(\frameSize,1024);
+~synth.set(\paramX, (2));
+
+
+
+/*(
+//osc patch for heavy bass design
+SynthDef.new(\bass, {
+	arg cpsPitch = 100, paramX=0, paramY=0, paramZ=0;
+	var sig, sin, tri, saw, pulse, wNoise, freqs, amps, rings, mod, modSource;
+
+	VOsc.ar
+
+	modSource = SinOsc.ar(cpsPitch*(2**(3*paramY)));
+
+	mod = modSource + 1;
+	mod = mod*cpsPitch*paramX*4;
+
+	sin = SinOsc.ar(cpsPitch + mod);
+	tri = LFTri.ar(cpsPitch + mod);
+	saw = LFSaw.ar(cpsPitch + mod);
+	wNoise = WhiteNoise.ar;
+
+	sig = saw;
+
+	sig = CombC.ar(sig,0.2, 1/(cpsPitch*(2**(paramY*4))),0.1);
+
+	// sig = BPF.ar(sig,100);
+
+	// sig = InsideOut.ar(sig);
+	// sig = LPF.ar(sig,(paramY*127).midicps);
+	// sig = SineShaper.ar(sig, 0.5);
+	//
+	// sig = LeakDC.ar(sig);
+	// sig = Decimator.ar(sig, cpsPitch*(2**(paramY*10)));
+
+	Out.ar(0, [sig,sig]);
+}).add;
+)*/
+
+// p = Synth(\bass);
+
 
 // at some point here, the outboard preset manager will read the osc3 controls and send them as OSC messages
 
