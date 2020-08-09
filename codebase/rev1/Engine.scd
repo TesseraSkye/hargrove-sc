@@ -222,6 +222,15 @@ SynthDef.new(\tube, {
 //make buffer set for multi tables
 // ~wtBufferSet = Buffer.allocConsecutive(~tableSize, s, ~frameSize*2, completionMessage: { "Added Buffer".postln; });
 
+
+f = {
+	var sig;
+	{
+		sig = 2}.value;
+	sig.postln
+}
+f.value
+
 (
 //makes wavetable out of buffer
 
@@ -230,24 +239,23 @@ SynthDef.new(\tube, {
 	var floatArr, sig, frameOffset, outBuff;
 	frameSize.postln;
 	tableNum.postln;
-	frameOffset = ((tableNum * frameSize)-1).clip(0,tableNum * frameSize);
+	frameOffset = ((tableNum * frameSize)).clip(0,tableNum * frameSize);
 	frameOffset.postln;
-	{
 		// buf.value.postln;
 		buf.getToFloatArray(frameOffset, frameSize, action:{arg array; {
-		floatArr = array;
+			floatArr = array;
 			floatArr.postln;
 			// "Added Float Array".postln;
 			sig = Signal.newClear(frameSize).waveFill({ |x, old, i| floatArr[x]},0,frameSize);
 			sig = sig.asWavetable;
 			sig.postln;
+			~localOutBuff = Buffer.sendCollection(s,sig);
 		}.defer;});
-	}.defer;
-	outBuff = Buffer.sendCollection(s,sig.asArray);
-	// floatArr.free;
-	// sig.free;
+
+	floatArr.free;
+	sig.free;
 	("Finished Table Number" + tableNum).postln;
-	outBuff;
+	~localOutBuff;
 }
 )
 
@@ -263,19 +271,17 @@ SynthDef.new(\tube, {
 		arg data, num;
 		num.postln;
 		// done twice to fix weird bug
-		num = 1;
-		fork {
-		0.5.wait;
-		~tables.put(num,~buildWavetable.value(~wtBufferFull, num, ~frameSize));
-		0.5.wait;
-		~tables.put(num,~buildWavetable.value(~wtBufferFull, num, ~frameSize));
-	};
+	// num = 1;
+	// fork {
+		AppClock.sched(0, {~tables.put(num,~buildWavetable.value(~wtBufferFull, num, ~frameSize);)});
+		AppClock.sched(0.05, {~tables.put(num,~buildWavetable.value(~wtBufferFull, num, ~frameSize);)});
+// };
 
 	});
 // });
 )
 
-e = ~buildWavetable.value(~wtBufferFull, 1, ~frameSize);
+e = ~buildWavetable.value(~wtBufferFull, 6, ~frameSize);
 e.postln;
 e.plot;
 
