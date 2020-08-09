@@ -207,119 +207,89 @@ SynthDef.new(\tube, {
 // Wavetable Prep
 
 (
+"".postln;
 ~frameSize = 2048;
 ~wtPath = "Q:/4_Code/Projects/HargroveOld/codebase-new/hargrove-sc/codebase/rev1/samples/wt_shapes.wav";
 ~tables = [];
 ~wtBufferFull = Buffer.read(s, ~wtPath);
+"Wavetable Build Started...".postln;
 )
+
 (
+"".postln;
 //get frames in wavetable
 ~tableSamps = ~wtBufferFull.numFrames;
 	// ~tableSamps.postln;
 ~tableFrames = ~tableSamps/~frameSize;
-)
 
-//make buffer set for multi tables
-// ~wtBufferSet = Buffer.allocConsecutive(~tableSize, s, ~frameSize*2, completionMessage: { "Added Buffer".postln; });
-
-
-f = {
-	var sig;
-	{
-		sig = 2}.value;
-	sig.postln
-}
-f.value
-
-(
 //makes wavetable out of buffer
 
 ~buildWavetable = {
 	arg buf, tableNum, frameSize;
 	var floatArr, sig, frameOffset, outBuff;
-	frameSize.postln;
-	tableNum.postln;
-	frameOffset = ((tableNum * frameSize)).clip(0,tableNum * frameSize);
-	frameOffset.postln;
-		// buf.value.postln;
-		buf.getToFloatArray(frameOffset, frameSize, action:{arg array; {
-			floatArr = array;
-			floatArr.postln;
-			// "Added Float Array".postln;
-			sig = Signal.newClear(frameSize).waveFill({ |x, old, i| floatArr[x]},0,frameSize);
-			sig = sig.asWavetable;
-			sig.postln;
-			~localOutBuff = Buffer.sendCollection(s,sig);
-		}.defer;});
+	// frameSize.postln;
+	// tableNum.postln;
 
-	floatArr.free;
-	sig.free;
-	("Finished Table Number" + tableNum).postln;
+	// build frame offset from
+	frameOffset = ((tableNum * frameSize)-1).clip(0,255*frameSize);
+	// frameOffset.postln;
+
+	//builds float array from buffer
+	buf.getToFloatArray(frameOffset, frameSize, action:{arg array; {
+		floatArr = array;
+		// floatArr.postln;
+
+		//converts float array to signal
+		sig = Signal.newClear(frameSize).waveFill({ |x, old, i| floatArr[x]},0,frameSize);
+
+		//to wavetable format
+		sig = sig.asWavetable;
+		// sig.postln;
+
+		// send collection streams an array (this time it's a signal) to the server and into a new buffer.
+		//this is global because stepping up doesn't work. :shrug:
+		~localOutBuff = Buffer.sendCollection(s,sig);
+
+		//free the signal and array
+		floatArr.free;
+		sig.free;
+	}.defer;});
 	~localOutBuff;
-}
+};
+"Registered Wavetable Build Function...".postln;
 )
 
 // addsWavetables
 
 //init table array
-~tables = Array.newClear(7);
-~tables.postln;
-// repeats once for each table
 (
-// AppClock.sched(0.01, {
-	~tables.do({
-		arg data, num;
-		num.postln;
-		// done twice to fix weird bug
-	// num = 1;
-	// fork {
-		AppClock.sched(0, {~tables.put(num,~buildWavetable.value(~wtBufferFull, num, ~frameSize);)});
+"".postln;
+"Allocating Table Space...".postln;
+~tables = Array.newClear(~tableFrames);
+// repeats once for each table
+"Building Tables...".postln;
+~tables.do({
+	arg data, num;
+	// num.postln;
+	// done twice to fix weird bug
+	fork {
+		//forces the execution to wait so there aren't overlaps
+		(num).wait;
+		AppClock.sched(0, {(~buildWavetable.value(~wtBufferFull, num, ~frameSize)).free;});
 		AppClock.sched(0.05, {~tables.put(num,~buildWavetable.value(~wtBufferFull, num, ~frameSize);)});
-// };
-
-	});
-// });
+		("Built table" + num).postln;
+	};
+});
 )
 
-e = ~buildWavetable.value(~wtBufferFull, 6, ~frameSize);
-e.postln;
-e.plot;
 
-~tables.put(1,~buildWavetable.value(~wtBufferFull, 1, ~frameSize));
-
-~tables.postln;
-~tables[1].plot;
-
-
-
-//init table array
+/*~tables.put(0,~buildWavetable.value(~wtBufferFull, 0, ~frameSize);)
 ~tables = Array.newClear(~tableFrames);
 ~tables.postln;
-// repeats once for each table
+~tables[0].plot;*/
 
-	var num;
-	num=2;
-	// done twice to fix weird bug
-
-	AppClock.sched(0, {~tables.put(num,~buildWavetable.value(~wtBufferFull, num, ~frameSize);)});
-	AppClock.sched(0.05, {~tables.put(num,~buildWavetable.value(~wtBufferFull, num, ~frameSize);)});
-
-
-
-~tables
-~tables[2].plot;
-
-
-
-~wtTable.size;
-~wtSig.plot;
-
-~wtBufferSet[0].plot
-
-~wtSig.free;
 
 (
-
 SynthDef.new(\wavetable, {
 	arg buffer, rate=0, cpsPitch=110, frameSize = 2048, paramX=0, paramY=0, paramZ=0, frameCount = 1;
 	var sig;
