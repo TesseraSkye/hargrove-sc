@@ -208,6 +208,12 @@ SynthDef.new(\tube, {
 
 // W A V E T A B L E
 
+// Samples!
+~wtPath = ["","",""];
+~wtPath.put(0,"Q:/4_Code/Projects/HargroveOld/codebase-new/hargrove-sc/codebase/rev1/samples/wt_sqsw.wav");
+~wtPath.put(1,"Q:/4_Code/Projects/HargroveOld/codebase-new/hargrove-sc/codebase/rev1/samples/wt_antimater.wav");
+~wtPath.put(2,"Q:/4_Code/Projects/HargroveOld/codebase-new/hargrove-sc/codebase/rev1/samples/wt_cz.wav");
+
 //makes wavetable out of buffer
 (
 ~buildWavetable = {
@@ -215,13 +221,15 @@ SynthDef.new(\tube, {
 	var floatArr, sig, frameOffset, outBuff;
 
 	// build frame offset from
-	frameOffset = ((tableNum * frameSize)).clip(0,255*frameSize);
-
+	frameOffset = ((tableNum * frameSize)-2).clip(0,255*frameSize);
 	//builds float array from buffer
 	srcBuf.getToFloatArray(frameOffset, frameSize, action:{arg floatArr; {
 
 		//converts float array to signal
-		sig = Signal.newClear(frameSize).waveFill({ |x, old, i| floatArr[x]},0,frameSize);
+		sig = Signal.newClear(frameSize).waveFill({ arg x, old, i;
+			//This is kind of a lowpass filter?? It removes some weird aliasing
+			if(x+20<frameSize,if(x>20,floatArr[x],floatArr[x+20]),floatArr[x-20]);
+		},0,frameSize);
 		//to wavetable format
 		sig = sig.asWavetable;
 
@@ -235,7 +243,7 @@ SynthDef.new(\tube, {
 	newBuf;
 };
 "Registered Wavetable Build Function...".postln;
-)
+);
 
 
 // Wavetable Prep
@@ -249,10 +257,6 @@ fork {
 	~wtRef = [];
 	~tableFrames = [];
 	~tableSamps = [];
-	~wtPath = ["","",""];
-	~wtPath.put(0,"Q:/4_Code/Projects/HargroveOld/codebase-new/hargrove-sc/codebase/rev1/samples/wt_shapes.wav");
-	~wtPath.put(1,"Q:/4_Code/Projects/HargroveOld/codebase-new/hargrove-sc/codebase/rev1/samples/wt_eguitar.wav");
-	~wtPath.put(2,"Q:/4_Code/Projects/HargroveOld/codebase-new/hargrove-sc/codebase/rev1/samples/wt_monster.wav");
 
 
 	~wtPath.do{
@@ -292,7 +296,7 @@ fork {
 						AppClock.sched(0, {(~buildWavetable.value(~wtRef[index], data, num, ~frameSize));});
 						AppClock.sched(0.05, {~tables[index] = ~tables[index].put(num,~buildWavetable.value(~wtRef[index], data, num, ~frameSize);)});
 						("Built table" + (num+1)).postln;
-						(num+1 == ~tableFrames).if({"Done!".postln},{});
+						(num+1 == ~tableFrames[index]).if({("___Table"+(index+1)+"Done!___").postln},{});
 					};
 				});
 				// loopDone.unhang.wait(~tableFrames[index]*0.5 + 1);
@@ -302,7 +306,7 @@ fork {
 
 	};
 };
-)
+);
 
 (
 SynthDef.new(\wavetable, {
@@ -310,25 +314,33 @@ SynthDef.new(\wavetable, {
 	var sig1, sig2, sig3, array, levels, out;
 	frameCount = frameCount - 1;
 
+	paramX = LinExp.kr(paramX)-1;
+
 	// Uses HSV to RGB to make an even power mixer
-	levels = levels.add(1-((1*paramZ) * ArrayMax.kr([0,ArrayMin.kr([((5 + (6*paramY))%6),4-(((5 + (6*paramY))%6)),1])])));
-	levels = levels.add(1-((1*paramZ) * ArrayMax.kr([0,ArrayMin.kr([((3 + (6*paramY))%6),4-(((3 + (6*paramY))%6)),1])])));
-	levels = levels.add(1-((1*paramZ) * ArrayMax.kr([0,ArrayMin.kr([((1 + (6*paramY))%6),4-(((1 + (6*paramY))%6)),1])])));
+	levels = levels.add(1-((1*paramY) * ArrayMax.kr([0,ArrayMin.kr([((5 + (6*paramX))%6),4-(((5 + (6*paramX))%6)),1])])));
+	levels = levels.add(1-((1*paramY) * ArrayMax.kr([0,ArrayMin.kr([((3 + (6*paramX))%6),4-(((3 + (6*paramX))%6)),1])])));
+	levels = levels.add(1-((1*paramY) * ArrayMax.kr([0,ArrayMin.kr([((1 + (6*paramX))%6),4-(((1 + (6*paramX))%6)),1])])));
 
 
 	// 3 sets of wavetables
-	sig1 = VOsc.ar((paramX * (~tableFrames[0]-1)).clip(0.001,(~tableFrames[0]-1)-0.001),cpsPitch,0,levels[0][0][0]);
-	sig2 = VOsc.ar(256+(paramX * (~tableFrames[1]-1)).clip(0.001,(~tableFrames[1]-1)-0.001),cpsPitch,0,levels[1][0][0]);
-	sig3 = VOsc.ar(512+(paramX * (~tableFrames[2]-1)).clip(0.001,(~tableFrames[2]-1)-0.001),cpsPitch,0,levels[2][0][0]);
-	sig2.scope;
+	sig1 = VOsc.ar((paramZ * (~tableFrames[0]-1)).clip(0.001,(~tableFrames[0]-1)-0.001),cpsPitch,0,levels[0][0][0]);
+	sig2 = VOsc.ar(256+(paramZ * (~tableFrames[1]-1)).clip(0.001,(~tableFrames[1]-1)-0.001),cpsPitch,levels[1][0][0]);
+	sig3 = VOsc.ar(512+(paramZ * (~tableFrames[2]-1)).clip(0.001,(~tableFrames[2]-1)-0.001),cpsPitch,0,levels[2][0][0]);
+	//combine them
 	array = [sig1 , sig2, sig3];
+	//remove any DC offset
+	// array = LeakDC.ar(array);
+	//sum them
+	//reduced and normalized to prevent clipping
 	out = Mix(array);
+	out =
+	out = Normalizer.ar(out);
 	Out.ar(0, [out,out]);
 }).add;
-)
+);
 ~synth = Synth(\wavetable, [\frameCount,~tableFrames]);
 
-
+s.scope;
 
 
 
