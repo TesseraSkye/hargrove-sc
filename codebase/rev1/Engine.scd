@@ -82,14 +82,14 @@ SynthDef.new(\sampler, {
 	Voice num is a selector from 0 - 8 that sets the output of the synth
 	*/
 
-	arg sampBuffer, paramX = 0, paramY = 0, paramZ = 1, cpsPitch=440, loop = 0, trig = -1, voiceNum = 0;
+	arg sampBuffer, paramX = 0.75, paramY = 0, paramZ = 1, cpsPitch=263.5, loop = 0, trig = -1, voiceNum = 0;
 
 	var loopStart, loopLength, loopEnd, loopRate, loopPos, sig, sigMono, outArr, frames, freeTrig, deltaTrig, ratioPitch, rate, start, duration;
 
 	rate = (paramX-0.5)*4;
 	start = paramY;
 	duration = paramZ**3;
-	ratioPitch = 2**((cpsPitch.cpsmidi / 12) - 5);
+	ratioPitch = rate * (2**((cpsPitch.cpsmidi / 12) - 5));
 
 	//prevents overflow or underflow
 	duration = duration.clip(0.001,1);
@@ -103,7 +103,7 @@ SynthDef.new(\sampler, {
 	loopLength = duration * frames;
 	loopLength = loopLength.clip(128,loopLength+20);
 	//positive rate is forward playback, negative is reversed. +-1 is initial speed
-	loopRate = BufRateScale.kr(sampBuffer) * (rate + ratioPitch);
+	loopRate = BufRateScale.kr(sampBuffer) * (ratioPitch);
 	//Positional driver
 	loopPos = Phasor.ar(trig, loopRate, 0, loopLength);
 	sig = BufRd.ar(1, sampBuffer, Wrap.ar((loopPos + loopStart)*deltaTrig,0, frames), 0, 4);
@@ -160,11 +160,11 @@ SynthDef.new(\granular, {
 (
 //modal synthesis
 SynthDef.new(\resonator, {
-	arg input, cpsPitch=440, paramX=0, paramY=1, paramZ=0,
+	arg input, cpsPitch=440, paramX=0, paramY=1, paramZ=0, voiceNum=0,
 	freqs (#[261.63, 523.26, 1048, 2096]),
 	amps (#[0.8, 0.6, 0.4, 0.05]),
 	rings (#[2, 1.5, 2, 0.8]);
-	var sig, fOffset, dScale, ratioPitch;
+	var sig, fOffset, dScale, ratioPitch, outArr;
 
 	fOffset = paramX;
 	dScale = paramY;
@@ -172,7 +172,8 @@ SynthDef.new(\resonator, {
 
 	fOffset = 600*(2**(fOffset))-600;
 	sig = DynKlank.ar(`[freqs, amps, rings], input.asAudioRateInput, ratioPitch, fOffset, dScale);
-	Out.ar(0, sig);
+	outArr = PanAz.ar(8, sig, voiceNum/4, 1, 1, 0);
+	Out.ar(0, outArr);
 }).add;
 )
 
@@ -183,8 +184,8 @@ SynthDef.new(\resonator, {
 (
 //hammer tube thing. idk, it's cool lol
 SynthDef.new(\tube, {
-	arg cpsPitch = 440, paramX=0, paramY=0, paramZ=0;
-	var sig, saw, modSaw;
+	arg cpsPitch = 440, paramX=0, paramY=0, paramZ=0 voiceNum=0;
+	var sig, saw, modSaw, outArr;
 	modSaw = Saw.ar(cpsPitch/(2**2));
 	saw = Saw.ar(cpsPitch);
 
@@ -196,7 +197,8 @@ SynthDef.new(\tube, {
 	sig = CombC.ar(sig,0.2, 1/(cpsPitch*(2**(paramZ*4))),0.1);
 	sig = LeakDC.ar(sig);
 
-	Out.ar(0, [sig,sig]);
+	outArr = PanAz.ar(8, sig, voiceNum/4, 1, 1, 0);
+	Out.ar(0, outArr);
 }).add;
 )
 
@@ -310,16 +312,14 @@ fork {
 
 (
 SynthDef.new(\wavetable, {
-	arg rate=0, cpsPitch=110, frameSize = 2048, paramX=0, paramY=0, paramZ=0, frameCount = [1,1,1];
+	arg rate=0, cpsPitch=110, frameSize = 2048, paramX=0, paramY=0, paramZ=0, frameCount = [1,1,1], voiceNum = 0;
 	var sig1, sig2, sig3, array, levels, out;
 	frameCount = frameCount - 1;
 
-	paramX = LinExp.kr(paramX)-1;
-
 	// Uses HSV to RGB to make an even power mixer
-	levels = levels.add(1-((1*paramY) * ArrayMax.kr([0,ArrayMin.kr([((5 + (6*paramX))%6),4-(((5 + (6*paramX))%6)),1])])));
-	levels = levels.add(1-((1*paramY) * ArrayMax.kr([0,ArrayMin.kr([((3 + (6*paramX))%6),4-(((3 + (6*paramX))%6)),1])])));
-	levels = levels.add(1-((1*paramY) * ArrayMax.kr([0,ArrayMin.kr([((1 + (6*paramX))%6),4-(((1 + (6*paramX))%6)),1])])));
+	levels = levels.add(1-(paramY * ArrayMax.kr([0,ArrayMin.kr([((5 + (6*paramX))%6),4-(((5 + (6*paramX))%6)),1])])));
+	levels = levels.add(1-(paramY * ArrayMax.kr([0,ArrayMin.kr([((3 + (6*paramX))%6),4-(((3 + (6*paramX))%6)),1])])));
+	levels = levels.add(1-(paramY * ArrayMax.kr([0,ArrayMin.kr([((1 + (6*paramX))%6),4-(((1 + (6*paramX))%6)),1])])));
 
 
 	// 3 sets of wavetables
@@ -333,9 +333,9 @@ SynthDef.new(\wavetable, {
 	//sum them
 	//reduced and normalized to prevent clipping
 	out = Mix(array);
-	out =
 	out = Normalizer.ar(out);
-	Out.ar(0, [out,out]);
+	out = PanAz.ar(8, out, voiceNum/4, 1, 1, 0);
+	Out.ar(0, out);
 }).add;
 );
 ~synth = Synth(\wavetable, [\frameCount,~tableFrames]);
