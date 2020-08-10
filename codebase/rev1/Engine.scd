@@ -215,7 +215,7 @@ SynthDef.new(\tube, {
 	var floatArr, sig, frameOffset, outBuff;
 
 	// build frame offset from
-	frameOffset = ((tableNum * frameSize)-1).clip(0,255*frameSize);
+	frameOffset = ((tableNum * frameSize)).clip(0,255*frameSize);
 
 	//builds float array from buffer
 	srcBuf.getToFloatArray(frameOffset, frameSize, action:{arg floatArr; {
@@ -286,7 +286,6 @@ fork {
 					arg data, num;
 					// num.postln;
 					// done twice to fix weird bug
-					"".postln;
 					fork {
 						//forces the execution to wait so there aren't overlaps
 						(num/5).wait;
@@ -304,92 +303,33 @@ fork {
 	};
 };
 )
-~tables[2][4].plot;
-~wtPath
-~wtRef
-~tableSamps
-
-(
-var tableset, set;
-set = 0;
-//init table array
-"".postln;
-"Allocating Table Space...".postln;
-
-// repeats once for each table
-"Building Tables...".postln;
-tableSet = ~tables[0];
-tableSet.do({
-	arg data, num;
-	// num.postln;
-	// done twice to fix weird bug
-	fork {
-		//forces the execution to wait so there aren't overlaps
-		(num/5).wait;
-		AppClock.sched(0, {(~buildWavetable.value(~wtBufferFull, data, num, ~frameSize));});
-		// AppClock.sched(0.05, {tableSet.put(num,~buildWavetable.value(~wtBufferFull, num, ~frameSize);)});
-		("Built table" + (num+1)).postln;
-		(num+1 == ~tableFrames).if({"Done!".postln},{});
-	};
-});
-
-)
-
-~tables
-
 
 (
 SynthDef.new(\wavetable, {
-	arg buffer, rate=0, cpsPitch=110, frameSize = 2048, paramX=0, paramY=0, paramZ=0, frameCount = 1;
-	var sig;
-	sig = VOsc.ar(buffer + (paramX * frameCount).clip(0.001,frameCount-0.001),cpsPitch);
-	sig = LeakDC.ar(sig);
-	Out.ar(0, [sig,sig]);
+	arg rate=0, cpsPitch=110, frameSize = 2048, paramX=0, paramY=0, paramZ=0, frameCount = [1,1,1];
+	var sig1, sig2, sig3, array, levels, out;
+	frameCount = frameCount - 1;
+
+	// Uses HSV to RGB to make an even power mixer
+	levels = levels.add(1-((1*paramZ) * ArrayMax.kr([0,ArrayMin.kr([((5 + (6*paramY))%6),4-(((5 + (6*paramY))%6)),1])])));
+	levels = levels.add(1-((1*paramZ) * ArrayMax.kr([0,ArrayMin.kr([((3 + (6*paramY))%6),4-(((3 + (6*paramY))%6)),1])])));
+	levels = levels.add(1-((1*paramZ) * ArrayMax.kr([0,ArrayMin.kr([((1 + (6*paramY))%6),4-(((1 + (6*paramY))%6)),1])])));
+
+
+	// 3 sets of wavetables
+	sig1 = VOsc.ar((paramX * (~tableFrames[0]-1)).clip(0.001,(~tableFrames[0]-1)-0.001),cpsPitch,0,levels[0][0][0]);
+	sig2 = VOsc.ar(256+(paramX * (~tableFrames[1]-1)).clip(0.001,(~tableFrames[1]-1)-0.001),cpsPitch,0,levels[1][0][0]);
+	sig3 = VOsc.ar(512+(paramX * (~tableFrames[2]-1)).clip(0.001,(~tableFrames[2]-1)-0.001),cpsPitch,0,levels[2][0][0]);
+	sig2.scope;
+	array = [sig1 , sig2, sig3];
+	out = Mix(array);
+	Out.ar(0, [out,out]);
 }).add;
 )
-~synth = Synth(\wavetable, [\buffer,~tables[0],\frameCount,~tableFrames]);
-// ~synth.set(\frameSize,1024);
-~synth.set(\buffer, ~tables[3]);
-~synth.set(\paramX, )
+~synth = Synth(\wavetable, [\frameCount,~tableFrames]);
 
-s.scope;
 
-/*(
-//osc patch for heavy bass design
-SynthDef.new(\bass, {
-arg cpsPitch = 100, paramX=0, paramY=0, paramZ=0;
-var sig, sin, tri, saw, pulse, wNoise, freqs, amps, rings, mod, modSource;
 
-VOsc.ar
-
-modSource = SinOsc.ar(cpsPitch*(2**(3*paramY)));
-
-mod = modSource + 1;
-mod = mod*cpsPitch*paramX*4;
-
-sin = SinOsc.ar(cpsPitch + mod);
-tri = LFTri.ar(cpsPitch + mod);
-saw = LFSaw.ar(cpsPitch + mod);
-wNoise = WhiteNoise.ar;
-
-sig = saw;
-
-sig = CombC.ar(sig,0.2, 1/(cpsPitch*(2**(paramY*4))),0.1);
-
-// sig = BPF.ar(sig,100);
-
-// sig = InsideOut.ar(sig);
-// sig = LPF.ar(sig,(paramY*127).midicps);
-// sig = SineShaper.ar(sig, 0.5);
-//
-// sig = LeakDC.ar(sig);
-// sig = Decimator.ar(sig, cpsPitch*(2**(paramY*10)));
-
-Out.ar(0, [sig,sig]);
-}).add;
-)*/
-
-// p = Synth(\bass);
 
 
 // at some point here, the outboard preset manager will read the osc3 controls and send them as OSC messages
