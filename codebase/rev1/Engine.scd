@@ -10,58 +10,109 @@ s.quit;
 
 // C O N T R O L S
 
-//reset controls
-(
-CCResponder.responders.do({arg item, index; item.remove;});
-NoteOnResponder.responders.do({arg item, index; item.remove;});
-)
+~activeSynth = \wavetable;
+
+// M I D I
 
 (
-CCResponder.new({
-	arg src, chan, num, value;
-	var newVal; newVal=(value/127);
-	~synth.set(\paramX, newVal);
-	// newVal.postln;
-}, num:1);
+MIDIdef.noteOn(\keybedOn, {
+	arg val, note, chan, src;
 
-CCResponder.new({
-	arg src, chan, num, value;
-	var newVal; newVal=(value/127);
-	~synth.set(\paramY, newVal);
-	// newVal.postln;
-}, num:2);
+	//Round robin steal voices n such
+	//If it would be too many...
+	if(((~voiceAge.size+1) > 8),{
+		var ageMinIndex;
+		ageMinIndex = ~voiceAge.minIndex;
+		ageMinIndex.postln;
+		//Free old synth..
+		~voiceArray[ageMinIndex].free;
+		//overwrite the oldest..
+		~voiceArray.put(ageMinIndex,Synth(~activeSynth,[\cpsPitch, note.midicps, \paramX, ~paramArray[0],\paramY, ~paramArray[1], \paramZ, ~paramArray[2]]));
+		//overwrite the note number..
+		~voiceNote.put(ageMinIndex, note);
+		//... and overwrite the date object.
+		~voiceAge.put(ageMinIndex, Date.getDate.rawSeconds);
+	},
+	{
+		//add them nondestructively
+		~voiceArray = ~voiceArray.add(Synth(~activeSynth,
+		[\cpsPitch, note.midicps, \paramX, ~paramArray[0],\paramY, ~paramArray[1], \paramZ, ~paramArray[2]]));
+		~voiceAge = ~voiceAge.add(Date.getDate.rawSeconds);
+		~voiceNote = ~voiceNote.add(note);
+	});
+}).permanent_(true);
 
-CCResponder.new({
-	arg src, chan, num, value;
-	var newVal; newVal=(value/127);
-	~synth.set(\paramZ, newVal);
-	// newVal.postln;
-}, num:3);
-NoteOnResponder.new({
-	arg src, chan, num, value;
-	var newVal; newVal=num.midicps;
-	~synth.set(\cpsPitch, newVal);
-	// newVal.postln;
-});
+MIDIdef.noteOff(\keybedOff, {
+	arg val, note, chan, src;
+	var index;
+
+	//get freeing note
+	index = ~voiceNote.indexOf(note);
+	// if it exists, remove it. if not, assume it was freed
+	if((index+2).booleanValue,{
+	//Free synth..
+	~voiceArray[index].free;
+	//then remove it..
+	~voiceArray.removeAt(index);
+	//then overwrite the date object...
+	~voiceAge.removeAt(index);
+	//..then remove the note data.
+	~voiceNote.removeAt(index);
+	})
+}).permanent_(true);
+
+//CCs
+~paramArray=[0,0,0];
+MIDIdef.cc(\paramX,{
+	arg val, num, chan, src;
+	var newVal;
+	newVal=(val/127);
+	~paramArray = ~paramArray.put(0,newVal);
+	~voiceArray.do({
+		arg item, index;
+		item.set(\paramX, newVal);
+	});
+},1).permanent_(true);
+
+MIDIdef.cc(\paramY,{
+	arg val, num, chan, src;
+	var newVal;
+	newVal=(val/127);
+	~paramArray = ~paramArray.put(1,newVal);
+	~voiceArray.do({
+		arg item, index;
+		item.set(\paramY, newVal);
+	});
+},2).permanent_(true);
+
+MIDIdef.cc(\paramZ,{
+	arg val, num, chan, src;
+	var newVal;
+	newVal=(val/127);
+	~paramArray = ~paramArray.put(2,newVal);
+	~voiceArray.do({
+		arg item, index;
+		item.set(\paramZ, newVal);
+	});
+},3).permanent_(true);
 )
-
-
-
 
 
 
 //!!!!!!!R A T I O   P I T C H   I S  2**((cpsPitch.cpsmidi / 12) - 5)
 
 
+
+
 /*
 OSC3 Modes
-0 - Sample Playback (PlayBuf) (low rate, osc rate) (Wrap)
-1 - 3D Wavetable (VOsc) (allows recording)
-2 - Granular (GrainBuf) (trig, dur, rate, pos)
+_0 - Sample Playback (PlayBuf) (low rate, osc rate) (Wrap)
+_1 - 3D Wavetable (VOsc) (allows recording)
+_2 - Granular (GrainBuf) (trig, dur, rate, pos)
 3 - Digital Oscilators (Osc) - Saw, sine, tri, pulse, supersaw, etc. Can be shaped with (Shaper)
 4 - Analog Sampled Oscillators - sampled from internal (VOsc ? maybe just Osc) Can be shaped with (Shaper)
 5 - Spring (Spring) - Spring Synthesis
-6 - Resonators (DynKlank) - Bank modal resonator
+_6 - Resonators (DynKlank) - Bank modal resonator
 7 - Pluck (Pluck) - Karplus Pluck (variable source)
 */
 
@@ -228,7 +279,7 @@ SynthDef.new(\tube, {
 	srcBuf.getToFloatArray(frameOffset, frameSize, action:{arg floatArr; {
 
 		//converts float array to signal
-		sig = Signal.newClear(frameSize).waveFill({ arg x, old, i;
+		sig = Signal.newClear(frameSize).waveFill({ arg x, old, index;
 			//This is kind of a lowpass filter?? It removes some weird aliasing
 			if(x+20<frameSize,if(x>20,floatArr[x],floatArr[x+20]),floatArr[x-20]);
 		},0,frameSize);
@@ -312,7 +363,7 @@ fork {
 
 (
 SynthDef.new(\wavetable, {
-	arg rate=0, cpsPitch=110, frameSize = 2048, paramX=0, paramY=0, paramZ=0, frameCount = [1,1,1], voiceNum = 0;
+	arg rate=0, cpsPitch=110, frameSize = 2048, paramX=0, paramY=0, paramZ=0, frameCount = ~tableFrames, voiceNum = 0;
 	var sig1, sig2, sig3, array, levels, out;
 	frameCount = frameCount - 1;
 
@@ -338,10 +389,9 @@ SynthDef.new(\wavetable, {
 	Out.ar(0, out);
 }).add;
 );
-~synth = Synth(\wavetable, [\frameCount,~tableFrames]);
+~synth = Synth(\wavetable);
 
 s.scope;
-
 
 
 // at some point here, the outboard preset manager will read the osc3 controls and send them as OSC messages
