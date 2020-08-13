@@ -267,7 +267,7 @@ fork {
 	);
 
 
-/*	~activeDir.postln;
+	/*	~activeDir.postln;
 	~wtPath[0].postln;*/
 
 	//build the tables
@@ -313,6 +313,8 @@ fork {
 
 	// M I D I
 
+
+	//!!!!!!!R A T I O   P I T C H   I S  2**((cpsPitch.cpsmidi / 12) - 5)
 	(
 
 		//done bc linux midi is blegh
@@ -407,14 +409,13 @@ fork {
 			});
 		},3).permanent_(true);
 
-		"Registered Midi Responders..".postln;
+		"Registered Midi Responders".postln;
 
 	);
 
 	0.5.wait;
-	MIDIdef.all;
 
-	//!!!!!!!R A T I O   P I T C H   I S  2**((cpsPitch.cpsmidi / 12) - 5)
+	"Hargrove booted!".postln;
 
 
 
