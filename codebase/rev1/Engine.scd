@@ -24,7 +24,7 @@ fork {
 
 	~sampPath = "./samples/vocoder.wav";
 	b = Buffer.readChannel(s, ~sampPath,channels:[0],bufnum:1100);
-	b.postln;
+	// b.postln;
 
 	(
 		// Atonal Sampler. Rate control is through zero
@@ -166,9 +166,9 @@ fork {
 	(
 		// Samples!
 		~wtPath = ["","",""];
-		~wtPath.put(0,"./samples/wt_sqsw.wav");
-		~wtPath.put(1,"./samples/wt_antimater.wav");
-		~wtPath.put(2,"./samples/wt_cz.wav");
+		~wtPath.put(0,"./samples/wt_yoy.wav");
+		~wtPath.put(1,"./samples/wt_kick.wav");
+		~wtPath.put(2,"./samples/wt_monster.wav");
 	);
 	//makes wavetable out of buffer
 	(
@@ -190,7 +190,7 @@ fork {
 				sig = sig.asWavetable;
 
 				// send collection streams an array (this time it's a signal) to the server and into a buffer.
-				newBuf.sendCollection(sig, wait:0.01);
+				newBuf.sendCollection(sig, wait:0.08);
 
 				//free the signal and array
 				floatArr.free;
@@ -198,6 +198,7 @@ fork {
 			}.defer;});
 			newBuf;
 		};
+		"".postln;
 		"Registered Wavetable Prep Function...".postln;
 	);
 
@@ -238,7 +239,7 @@ fork {
 						0.1.wait;
 						("Wavetable build started for table" + (index+1)).postln;
 						//get frames in wavetable
-						~tables = ~tables.add(Buffer.allocConsecutive(activeFrames,s,~frameSize*2,bufnum:index*256););
+						~tables = ~tables.add(Buffer.allocConsecutive(activeFrames,s,~frameSize*2,bufnum:index*257););
 						"".postln;
 						0.1.wait;
 						fork {
@@ -251,7 +252,7 @@ fork {
 									(num/5).wait;
 									AppClock.sched(0, {(~prepTables.value(~wtRef[index], data, num, ~frameSize));});
 									AppClock.sched(0.05, {~tables[index] = ~tables[index].put(num,~prepTables.value(~wtRef[index], data, num, ~frameSize);)});
-									("Built table" + (num+1)).postln;
+									(((num+1)/~tableFrames[index]*100).asInteger+"% done...").postln;
 									(num+1 == ~tableFrames[index]).if({("___Table"+(index+1)+"Done!___").postln},{});
 								};
 							});
@@ -264,11 +265,18 @@ fork {
 			};
 		};
 	);
-	~activeDir.postln;
-	~wtPath[0].postln;
+
+
+/*	~activeDir.postln;
+	~wtPath[0].postln;*/
+
+	//build the tables
 	~buildTables.value;
 
+
+	//NEEDS CONFIG FOR WT LENGTH
 	1.wait;
+	((~tableFrames.maxItem) / 5).wait;
 
 	(
 		SynthDef.new(\wavetable, {
@@ -310,14 +318,14 @@ fork {
 		//done bc linux midi is blegh
 		// MIDIClient.list;
 		MIDIClient.init(1,1,false);
-		MIDIIn.connectAll;
+		MIDIIn.connectAll(false);
 
 		0.5.wait;
 
 		MIDIdef.noteOn(\keybedOn, {
 			arg val, note, chan, src;
 
-			note.postln;
+			// note.postln;
 
 			//Round robin steal voices n such
 			//If it would be too many...
@@ -347,7 +355,7 @@ fork {
 			arg val, note, chan, src;
 			var index;
 
-			note.postln;
+			// note.postln;
 
 			//get freeing note
 			index = ~voiceNote.indexOf(note);
