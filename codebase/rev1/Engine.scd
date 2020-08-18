@@ -1,24 +1,51 @@
 // - - - - - INIT - - - - -
+
+//INSTRUCTIONS
+/*
+Press Ctrl Enter to execute code. Press Ctrl period to stop it if it gets stuck or is being weird.
+Update the various paths with the paths to your samples. NEVER USE BACKSLASH "\", only ever forward "/".
+Wavetables should be run through serum first to be compatible.
+
+To turn it on, put your text cursor in the user params section and press ctrl enter. Do it again
+
+
+
+*/
 (
-"Booting...".postln;
-s.boot;
-s.waitForBoot({
+
+// USER PARAMS (RUN FIRST)
+
+~activeSynth = \wavetable;
+// Samples!
+//This is for the sampler and granular..
+~sampPath = "Q:/4_Code/Projects/HargroveOld/codebase-new/hargrove-sc/codebase/rev1/samples/woah.wav";
+
+//..and this is for the wavetable synth. All of them should be filled and run through serum first.
+~wtPath = ["","",""];
+~wtPath.put(0,"Q:/4_Code/Projects/HargroveOld/codebase-new/hargrove-sc/codebase/rev1/samples/wt_shapes.wav");
+~wtPath.put(1,"Q:/4_Code/Projects/HargroveOld/codebase-new/hargrove-sc/codebase/rev1/samples/wt_eguitar.wav");
+~wtPath.put(2,"Q:/4_Code/Projects/HargroveOld/codebase-new/hargrove-sc/codebase/rev1/samples/wt_monster.wav");
+
+//for dev stuff
+~fullIO = false;
+
+)
+
+
+
+//boot the synth (RUN LAST)
+~boot.value;
+
+
+
+//(RUN SECOND)
+(
+~boot = {
+	"Booting...".postln;
+	s.boot;
+	s.waitForBoot({
 		fork {
 			(
-				~activeSynth = \wavetable;
-
-				// Samples!
-				//This is for the sampler and granular..
-				~sampPath = "Q:/4_Code/Projects/HargroveOld/codebase-new/hargrove-sc/codebase/rev1/samples/vocoder.wav";
-
-				//..and this is for the wavetable synth. All of them should be filled and run through serum first.
-				~wtPath = ["","",""];
-				~wtPath.put(0,"Q:/4_Code/Projects/HargroveOld/codebase-new/hargrove-sc/codebase/rev1/samples/wt_shapes.wav");
-				~wtPath.put(1,"Q:/4_Code/Projects/HargroveOld/codebase-new/hargrove-sc/codebase/rev1/samples/wt_kick.wav");
-				~wtPath.put(2,"Q:/4_Code/Projects/HargroveOld/codebase-new/hargrove-sc/codebase/rev1/samples/wt_monster.wav");
-
-				//for dev stuff
-				~fullIO = false;
 			);
 
 			/*
@@ -33,7 +60,7 @@ s.waitForBoot({
 			7 - Pluck (Pluck) - Karplus Pluck (variable source)
 			*/
 
-			b = Buffer.readChannel(s, ~sampPath,channels:[0],bufnum:1100);
+			~sampBuffer = Buffer.readChannel(s, ~sampPath,channels:[0],bufnum:1010);
 			// b.postln;
 
 			(
@@ -46,7 +73,7 @@ s.waitForBoot({
 					Voice num is a selector from 0 - 8 that sets the output of the synth
 					*/
 
-					arg sampBuffer, paramX = 0.75, paramY = 0, paramZ = 1, cpsPitch=263.5, loop = 0, trig = -1, voiceNum = 0;
+					arg sampBuffer, paramX = 0.75, paramY = 0, paramZ = 1, cpsPitch=263.5, loop = 1, trig = -1, voiceNum = 0;
 
 					var loopStart, loopLength, loopEnd, loopRate, loopPos, sig, sigMono, out, frames, freeTrig, deltaTrig, ratioPitch, rate, start, duration;
 
@@ -144,6 +171,7 @@ s.waitForBoot({
 					fOffset = 600*(2**(fOffset))-600;
 					sig = DynKlank.ar(`[freqs, amps, rings], input.asAudioRateInput, ratioPitch, fOffset, dScale);
 					out=sig;
+					out = Normalizer.ar(out);
 					if(~fullIO == true, {
 						out = PanAz.ar(8, sig, voiceNum/4, 1, 1, 0);
 						Out.ar(0, out);
@@ -170,6 +198,7 @@ s.waitForBoot({
 					sig = CombC.ar(sig,0.2, 1/(cpsPitch*(2**(paramZ*4))),0.1);
 					sig = LeakDC.ar(sig);
 					out=sig;
+					out = Normalizer.ar(out);
 					if(~fullIO == true, {
 						out = PanAz.ar(8, out, voiceNum/4, 1, 1, 0);
 						Out.ar(0, out);
@@ -198,8 +227,8 @@ s.waitForBoot({
 						//converts float array to signal
 						sig = Signal.newClear(frameSize).waveFill({ arg x, old, index;
 							//This offsets the sample a bit so it doesn't have overruns or whatev. It removes some weird aliasing
-						floatArr[x];
-						// if(x+10<frameSize,if(x>10,floatArr[x],floatArr[x+10]),floatArr[x-10]);
+							floatArr[x];
+							// if(x+10<frameSize,if(x>10,floatArr[x],floatArr[x+10]),floatArr[x-10]);
 						},0,frameSize);
 						//to wavetable format
 						sig = sig.asWavetable;
@@ -315,7 +344,7 @@ s.waitForBoot({
 					//sum them
 					//reduced and normalized to prevent clipping
 					out = Mix(array);
-					out = Normalizer.ar(out);
+
 					if(~fullIO == true, {
 						out = PanAz.ar(8, out, voiceNum/4, 1, 1, 0);
 						Out.ar(0, out);
@@ -352,7 +381,7 @@ s.waitForBoot({
 						//Free old synth..
 						~voiceArray[ageMinIndex].free;
 						//overwrite the oldest..
-						~voiceArray.put(ageMinIndex,Synth(~activeSynth,[\cpsPitch, note.midicps, \paramX, ~paramArray[0],\paramY, ~paramArray[1], \paramZ, ~paramArray[2]]));
+						~voiceArray.put(ageMinIndex,Synth(~activeSynth,[\sampBuffer, ~sampBuffer, \cpsPitch, note.midicps, \paramX, ~paramArray[0],\paramY, ~paramArray[1], \paramZ, ~paramArray[2]]));
 						//overwrite the note number..
 						~voiceNote.put(ageMinIndex, note);
 						//... and overwrite the date object.
@@ -361,7 +390,7 @@ s.waitForBoot({
 					{
 						//add them nondestructively
 						~voiceArray = ~voiceArray.add(Synth(~activeSynth,
-							[\cpsPitch, note.midicps, \paramX, ~paramArray[0],\paramY, ~paramArray[1], \paramZ, ~paramArray[2]]));
+							[\sampBuffer, ~sampBuffer, \cpsPitch, note.midicps, \paramX, ~paramArray[0],\paramY, ~paramArray[1], \paramZ, ~paramArray[2]]));
 						~voiceAge = ~voiceAge.add(Date.getDate.rawSeconds);
 						~voiceNote = ~voiceNote.add(note);
 					});
@@ -434,7 +463,7 @@ s.waitForBoot({
 
 
 		};
-});
+	});
+};
 );
-s.scope;
 // at some point here, the outboard preset manager will read the osc3 controls and send them as OSC messages
